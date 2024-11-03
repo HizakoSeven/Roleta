@@ -103,10 +103,18 @@ def roleta():
         counters[channel][user] = 0  # Resetar o contador do usuário
         save_data(counters, data_file_path)
 
+        # Mensagem de notificação
         if record_broken:
-            return f'💥 {user}, você tomou o tiro e QUEBROU O RECORDE com {user_streak} sobrevivências! Seu contador foi resetado.'
+            notification = f'💥 {user}, você tomou o tiro e QUEBROU O RECORDE com {user_streak} sobrevivências! Seu contador foi resetado.'
         else:
-            return f'💥 {user}, você tomou o tiro! Seu contador foi resetado.'
+            notification = f'💥 {user}, você tomou o tiro! Seu contador foi resetado.'
+
+        # Comando de timeout
+        timeout_command = f'/timeout {user} 10'
+
+        # Retornar as duas mensagens separadas por '|'
+        return f'{notification}|{timeout_command}'
+
     else:
         counters[channel][user] = counters[channel].get(user, 0) + 1  # Incrementar o contador
         save_data(counters, data_file_path)
@@ -155,16 +163,24 @@ def roleta_limitada():
         limited_counters[channel][user] = user_data
         save_data(limited_counters, limited_data_file_path)
 
+        # Mensagem de notificação
         if record_broken:
             if user_data['shotsTaken'] >= 3:
-                return f'💥 {user}, você tomou o tiro, atingiu o limite de 3 tiros e QUEBROU O RECORDE com {user_streak} sobrevivências! Volte amanhã para jogar novamente.'
+                notification = f'💥 {user}, você tomou o tiro, atingiu o limite de 3 tiros e QUEBROU O RECORDE com {user_streak} sobrevivências! Volte amanhã para jogar novamente.'
             else:
-                return f'💥 {user}, você tomou o tiro e QUEBROU O RECORDE com {user_streak} sobrevivências! {user_data["shotsTaken"]}/3.'
+                notification = f'💥 {user}, você tomou o tiro e QUEBROU O RECORDE com {user_streak} sobrevivências! {user_data["shotsTaken"]}/3.'
         else:
             if user_data['shotsTaken'] >= 3:
-                return f'💥 {user}, você tomou o tiro e atingiu o limite de 3 tiros hoje. Volte amanhã.'
+                notification = f'💥 {user}, você tomou o tiro e atingiu o limite de 3 tiros hoje. Volte amanhã.'
             else:
-                return f'💥 {user}, você tomou o tiro! {user_data["shotsTaken"]}/3.'
+                notification = f'💥 {user}, você tomou o tiro! {user_data["shotsTaken"]}/3.'
+
+        # Comando de timeout
+        timeout_command = f'/timeout {user} 10'
+
+        # Retornar as duas mensagens separadas por '|'
+        return f'{notification}|{timeout_command}'
+
     else:
         user_data['streak'] = user_data.get('streak', 0) + 1  # Incrementar a sequência de sobrevivências
         limited_counters[channel][user] = user_data

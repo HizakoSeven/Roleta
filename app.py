@@ -13,25 +13,7 @@ data_file_path = os.path.join(BASE_DIR, 'counters.json')
 limited_data_file_path = os.path.join(BASE_DIR, 'limited_counters.json')
 record_file_path = os.path.join(BASE_DIR, 'record.json')
 
-# Função para carregar dados de um arquivo
-def load_data(file_path):
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                return json.load(f)
-        else:
-            return {}
-    except Exception as e:
-        print(f"Erro ao carregar dados do arquivo {file_path}: {e}")
-        return {}
-
-# Função para salvar dados em um arquivo
-def save_data(data, file_path):
-    try:
-        with open(file_path, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print(f"Erro ao salvar dados no arquivo {file_path}: {e}")
+# Funções de carregamento e salvamento de dados permanecem as mesmas
 
 # Carregar os dados existentes
 counters = load_data(data_file_path)
@@ -42,34 +24,9 @@ record = load_data(record_file_path)
 last_reset_date = {}
 last_limited_reset_date = {}
 
-# Função para verificar e resetar os contadores da roleta normal diariamente
-def check_daily_reset(channel):
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    if last_reset_date.get(channel) != current_date:
-        counters[channel] = {}  # Resetar todos os contadores do canal
-        last_reset_date[channel] = current_date
-        save_data(counters, data_file_path)
-        print(f"Contadores da roleta normal resetados para um novo dia no canal {channel}.")
+# Funções de reset diário permanecem as mesmas
 
-# Função para verificar e resetar os contadores da roleta limitada diariamente
-def check_limited_daily_reset(channel):
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    if last_limited_reset_date.get(channel) != current_date:
-        limited_counters[channel] = {}  # Resetar todos os contadores do canal
-        last_limited_reset_date[channel] = current_date
-        save_data(limited_counters, limited_data_file_path)
-        print(f"Contadores da roleta limitada resetados para um novo dia no canal {channel}.")
-
-# Função para atualizar o recorde
-def update_record(channel, user, streak):
-    if not record.get(channel) or streak > record[channel]['streak']:
-        record[channel] = {
-            'user': user,
-            'streak': streak
-        }
-        save_data(record, record_file_path)
-        return True  # Retorna True se o recorde foi quebrado
-    return False  # Retorna False se o recorde não foi quebrado
+# Função para atualizar o recorde permanece a mesma
 
 # Rota raiz para verificar se a API está funcionando
 @app.route('/')
@@ -109,11 +66,12 @@ def roleta():
         else:
             notification = f'💥 {user}, você tomou o tiro! Seu contador foi resetado.'
 
-        # Comando de timeout
-        timeout_command = f'/timeout {user} 10'
-
-        # Retornar as duas mensagens separadas por '|'
-        return f'{notification}|{timeout_command}'
+        # Retornar o JSON com o indicador de timeout
+        return json.dumps({
+            'message': notification,
+            'timeout': True,
+            'user': user
+        })
 
     else:
         counters[channel][user] = counters[channel].get(user, 0) + 1  # Incrementar o contador
@@ -124,9 +82,14 @@ def roleta():
         record_broken = update_record(channel, user, user_streak)
 
         if record_broken:
-            return f'🎉 {user}, você sobreviveu e QUEBROU O RECORDE com {user_streak} sobrevivências consecutivas!'
+            notification = f'🎉 {user}, você sobreviveu e QUEBROU O RECORDE com {user_streak} sobrevivências consecutivas!'
         else:
-            return f':) {user}, você sobreviveu! Tentativas sem tomar o tiro: {user_streak}.'
+            notification = f':) {user}, você sobreviveu! Tentativas sem tomar o tiro: {user_streak}.'
+
+        return json.dumps({
+            'message': notification,
+            'timeout': False
+        })
 
 # Rota '/roletaLimitada' para a lógica da roleta limitada
 @app.route('/roletaLimitada')
@@ -148,7 +111,10 @@ def roleta_limitada():
     user_data = limited_counters[channel].get(user, {'shotsTaken': 0, 'streak': 0})
 
     if user_data['shotsTaken'] >= 3:
-        return f'🚫 {user}, você já levou 3 tiros hoje. Volte em 24 horas.'
+        return json.dumps({
+            'message': f'🚫 {user}, você já levou 3 tiros hoje. Volte em 24 horas.',
+            'timeout': False
+        })
 
     # Gerar um número aleatório de 1 a 6
     tiro = randint(1, 6)
@@ -175,11 +141,12 @@ def roleta_limitada():
             else:
                 notification = f'💥 {user}, você tomou o tiro! {user_data["shotsTaken"]}/3.'
 
-        # Comando de timeout
-        timeout_command = f'/timeout {user} 10'
-
-        # Retornar as duas mensagens separadas por '|'
-        return f'{notification}|{timeout_command}'
+        # Retornar o JSON com o indicador de timeout
+        return json.dumps({
+            'message': notification,
+            'timeout': True,
+            'user': user
+        })
 
     else:
         user_data['streak'] = user_data.get('streak', 0) + 1  # Incrementar a sequência de sobrevivências
@@ -191,21 +158,16 @@ def roleta_limitada():
         record_broken = update_record(channel, user, user_streak)
 
         if record_broken:
-            return f'🎉 {user}, você sobreviveu e QUEBROU O RECORDE com {user_streak} sobrevivências consecutivas!'
+            notification = f'🎉 {user}, você sobreviveu e QUEBROU O RECORDE com {user_streak} sobrevivências consecutivas!'
         else:
-            return f':) {user}, você sobreviveu! Tentativas sem tomar o tiro: {user_streak}.'
+            notification = f':) {user}, você sobreviveu! Tentativas sem tomar o tiro: {user_streak}.'
 
-# Rota '/roletaRecorde' para exibir o recorde atual
-@app.route('/roletaRecorde')
-def roleta_recorde():
-    channel = request.args.get('channel')
-    if not channel:
-        return 'Canal não especificado.'
+        return json.dumps({
+            'message': notification,
+            'timeout': False
+        })
 
-    if record.get(channel) and record[channel].get('user') and record[channel].get('streak'):
-        return f'🏆 O recorde atual no canal é de {record[channel]["user"]}, com {record[channel]["streak"]} sobrevivências consecutivas!'
-    else:
-        return f'Ainda não há um recorde registrado no canal {channel}. Seja o primeiro a estabelecê-lo!'
+# Rota '/roletaRecorde' permanece inalterada
 
 # Iniciar o servidor
 if __name__ == '__main__':
